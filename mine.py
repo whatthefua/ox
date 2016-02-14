@@ -69,7 +69,6 @@ def processTurn(fp, winner, obj):
     else:
         fp.write("\n0\n")
 
-
 for I in range(1,236):
     response = urllib2.urlopen("http://theaigames.com/competitions/ultimate-tic-tac-toe/game-log/a/%d" % I)
     str = response.read()
@@ -109,13 +108,3 @@ for I in range(1,236):
         print "%d %d" % (I,K)
 
         K += 1
-
-# response = urllib2.urlopen('http://theaigames.com/competitions/ultimate-tic-tac-toe/games/56b548e71c687b4f4e8ad827/data')
-str = response.read()
-obj = json.loads(str)
-fp = open('test.txt','w')
-
-for turn in obj["states"]:
-    processTurn(fp, 1, turn)
-
-fp.close()
