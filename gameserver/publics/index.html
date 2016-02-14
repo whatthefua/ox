@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+</head>
+
+<body>
+  <form action="">
+    <input type="textbox" value="eiei" id="boardName"><br>
+    <input type="radio" name="player" value="1"> red
+    <br>
+    <input type="radio" name="player" value="2"> blue
+    <br>
+  </form>
+  <div id="msg">
+  </div>
+  <div id="game">
+  </div>
+  <script src="jquery.js"></script>
+  <script>
+    var player;
+    var microEle = [];
+    var macroEle = [];
+    var boardName = "eiei";
+    function msg(str) {
+      $('#msg').text(str);
+    }
+    function redraw(state) {
+      var a = [0, 1, 2];
+      for (var mi in a) {
+        for (var mj in a) {
+          macroEle[mi][mj].css("background","");
+          for (var i in a) {
+            for (var j in a) {
+              //SO TIGHT
+              var owner = state.board[mi][mj][i][j];
+              microEle[mi][mj][i][j].css("background", "rgb(" + (owner == 1 ? 255 : 0) + "," + (owner == 0 ? 150 : 0) + "," + (owner == 2 ? 255 : 2) + ")");
+            }
+          }
+        }
+      }
+      var lm = state.lastmove;
+      if(!lm)return;
+      microEle[lm.mi][lm.mj][lm.i][lm.j].css("border", "2px solid darkgreen");
+      macroEle[lm.i][lm.j].css("background","#555");
+    }
+
+    function getState(cb) {
+      $.get('/state',{
+        boardName:boardName
+      }, function(ret) {
+        ret = JSON.parse(ret);
+        redraw(ret);
+        if (cb)
+          cb(ret);
+      })
+    }
+
+    function move(i, j, mi, mj) {
+      $.post('/move', {
+        player: player,
+        i: i,
+        j: j,
+        mi: mi,
+        mj: mj
+      }, function(ret) {
+        getState();
+        msg(ret);
+      });
+    }
+
+    function handleClick(ele, i, j, mi, mj) {
+      ele.click(function() {
+        player = $("input:radio:checked").val();
+        move(i, j, mi, mj);
+      });
+    }
+
+    function generateTable() {
+      var a = [0, 1, 2];
+      for (var mi in a) {
+        microEle[mi] = [];
+        macroEle[mi] = [];
+        for (var mj in a) {
+          var macroBlock = $("<div>");
+          macroBlock.css("display", "inline-block");
+          macroBlock.css("margin", "10px");
+          microEle[mi][mj] = [];
+          macroEle[mi][mj] = macroBlock;
+          for (var i in a) {
+            microEle[mi][mj][i] = [];
+            var microBlock;
+            for (var j in a) {
+              microBlock = $("<div>");
+              microEle[mi][mj][i][j] = microBlock;
+              microBlock.css("margin", "5px");
+              microBlock.css("background", "#555");
+              microBlock.css("width", "50px");
+              microBlock.css("height", "50px");
+              microBlock.css("display", "inline-block");
+              handleClick(microBlock, i, j, mi, mj);
+              macroBlock.append(microBlock);
+
+            }
+            macroBlock.append("<br>")
+          }
+          $('#game').append(macroBlock);
+        }
+        $('#game').append("<br>")
+      }
+    }
+    $(function() {
+      $('#boardName').keyup(function(){
+        boardName = $(this).val();
+      })
+      generateTable();
+      getState();
+    });
+    setInterval(getState, 500);
+  </script>
+</body>
+
+</html>
