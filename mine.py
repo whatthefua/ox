@@ -62,8 +62,6 @@ def processTurn(fp, winner, obj):
     for x in board:
         fp.write("%d " % x)
 
-    fp.write("\n")
-
     if 1 == int(winner[6]):
         fp.write("\n1\n")
     else:
