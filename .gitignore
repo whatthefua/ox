@@ -10,6 +10,8 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
+.remote-sync.json
+
 # Windows Installer files
 *.cab
 *.msi

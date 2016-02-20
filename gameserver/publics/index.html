@@ -58,6 +58,7 @@
 
     function move(i, j, mi, mj) {
       $.post('/move', {
+        boardName:boardName ,
         player: player,
         i: i,
         j: j,
@@ -75,7 +76,6 @@
         move(i, j, mi, mj);
       });
     }
-
     function generateTable() {
       var a = [0, 1, 2];
       for (var mi in a) {
