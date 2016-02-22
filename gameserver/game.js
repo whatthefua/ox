@@ -1,7 +1,9 @@
 var db = require('./db.js');
 function initBoard(){
   var board = [];
+  var macro = [];
   for(var mi=0;mi<3;mi++){
+    macro[mi]=[0,0,0];
     board[mi]=[];
     for(var mj=0;mj<3;mj++){
       board[mi][mj]=[];
@@ -12,6 +14,7 @@ function initBoard(){
   }
   var boardData = {};
   boardData.board = board;
+  boardData.macro = macro;
   boardData.turn = 1;
   boardData.turnCount = 0;
   return boardData;
@@ -48,9 +51,30 @@ function getDominator(arr){
       }
     }
   }
+  if((ans[s-1][0]&upFlag) || (ans[s-1][s-1]&downFlag))return 1;
+  if((ans[s-1][0]&(upFlag<<4)) || (ans[s-1][s-1]&(downFlag<<4)))return 2;
   for(var i=0;i<s;i++){
-    if(ans[i][s-1]||ans[s-1][i])return ans[i][s-1] <16 ? 1:2;
+    if((ans[i][s-1]&horiFlag) || (ans[s-1][i]&vertFlag))return 1;
+    if((ans[i][s-1]&(horiFlag<<4)) || (ans[s-1][i]&(vertFlag<<4)))return 2;
+    if((ans[s-1][0]&upFlag) || (ans[0][s-1]&downFlag))return 1;
+    if((ans[s-1][0]&(upFlag<<4)) || (ans[0][s-1]&(downFlag<<4)))return 1;
   }
+  return 0;
+}
+function findMacroState(boardState){
+  var m = boardState.lastmove;
+  var targetIsOwned = getDominator(boardState.board[m.i][m.j]);
+  for(var i=0;i<3;i++){
+    for(var j=0;j<3;j++){
+      var dom = getDominator(boardState.board[i][j]);
+      if(!dom){
+        if(targetIsOwned)boardState.macro[i][j] = -1;
+        else boardState.macro[i][j] = 0;
+      }
+      else boardState.macro[i][j]=dom;
+    }
+  }
+  if(!targetIsOwned)boardState.macro[m.i][m.j] = -1;
 }
 function getBlock(board,target){
   return board[target.mi][target.mj][target.i][target.j];
@@ -59,19 +83,30 @@ function setBlock(board,target){
   board[target.mi][target.mj][target.i][target.j] = parseInt(target.player);
 }
 function validateMove(boardState,move){
-  if(move.player!=='1'&&move.player!=='2') return "Who?!?";
+  var lastmove = boardState.lastmove;
+  var macroMapi = ["top","middle","bottom"];
+  var macroMapj = ["left","center","right"];
   if(boardState.ended) return "Game ended.";
+  if(move.player!=='1'&&move.player!=='2') return "Who?!?";
+  if(move.player!=boardState.turn) return "Not your turn.";
   if(getBlock(boardState.board,move)) return "Block occupied.";
   if(getDominator(boardState.board[move.mi][move.mj])) return "This macro is fucking owned";
   if(boardState.lastmove){
-
+    if(move.mi != lastmove.i || move.mj != lastmove.j){
+      if(!getDominator(boardState.board[lastmove.i][lastmove.j]))
+      return "Invalid move! must be in : " + macroMapi[lastmove.i] + "-" + macroMapj[lastmove.j];
+    }
   }
+  return null;
 }
 function setBoard(boardName,boardState,callback){
   db.set(boardName+ ":state",JSON.stringify(boardState),(err,resp)=>{
     if(err)return callback(err);
     callback(null,boardState);
   });
+}
+function recordMove(move,turn){
+
 }
 exports.getBoard = (boardName,callback)=>{
   db.get(boardName+":state",function(err,db_res){
@@ -84,7 +119,7 @@ exports.getBoard = (boardName,callback)=>{
         callback(null,JSON.stringify(newBoard));
       });
     }
-    callback(null,db_res);
+    else callback(null,db_res);
   });
 }
 exports.move = (move,callback)=>{
@@ -96,6 +131,14 @@ exports.move = (move,callback)=>{
     var moveError = validateMove(boardState,move);
     if(!moveError){
       setBlock(boardState.board,move);
+      // boardState.macro[move.mi][move.mj] = getDominator(boardState.board[move.mi][move.mj]);
+      boardState.lastmove = move;
+      findMacroState(boardState);
+      var winner = getDominator(boardState.macro);
+      if(winner)boardState.ended=true
+      recordMove(move,boardState.turnCount);
+      boardState.turnCount++;
+      boardState.turn = boardState.turn == '1' ? 2 : 1;
       setBoard(move.boardName,boardState,(err,resp)=>{
         if(err){
           console.log("Database error:" + err);
