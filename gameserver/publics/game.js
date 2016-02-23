@@ -23,6 +23,11 @@ var turnStr = {
 }
 function redraw(state) {
   var a = [0, 1, 2];
+  if(state.bot){
+    $("input:radio").attr("disabled", true);
+    console.log(state.bot);
+    $(state.bot==2?"input:radio:first":"input:radio:eq(1)").prop("checked", true);
+  }
   for (var mi in a) {
     for (var mj in a) {
       macroEle[mi][mj].css("background",macroColor[state.macro[mi][mj]]);
@@ -35,8 +40,8 @@ function redraw(state) {
       }
     }
   }
-  turnEle.text(turnStr[state.turn] + " turn.");
-  turnEle.css("background",state.ended?"rgba(0,0,0)":turnStr[state.turn]);
+  turnEle.text(state.ended?"ended.":(turnStr[state.turn] + " turn."));
+  turnEle.css("background",state.ended?"rgb(100,100,100)":turnStr[state.turn]);
 }
 
 function getState(cb) {
@@ -44,10 +49,15 @@ function getState(cb) {
     boardName:boardName
   }, function(ret) {
     ret = JSON.parse(ret);
+    if(ret.error){
+      msg(ret.error);
+      return;
+    }
+    else msg("");
     boardState = ret;
     redraw(ret);
     if (cb)
-      cb(ret);
+    cb(ret);
   })
 }
 
@@ -60,6 +70,7 @@ function move(i, j, mi, mj) {
     mi: mi,
     mj: mj
   }, function(ret) {
+    console.log(ret);
     getState();
   });
 }

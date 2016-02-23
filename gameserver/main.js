@@ -12,7 +12,10 @@ app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
 app.get('/state',(req,res)=>{
   var queryData = querystring.parse(url.parse(req.url).query);
   game.getBoard(queryData.boardName,function(err,data){
-    if(err)return console.log(err);
+    if(err){
+      res.end(JSON.stringify({error:err.message}));
+      return console.log(err);
+    }
     res.end(data);
   });
 });

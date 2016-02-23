@@ -1,9 +1,10 @@
+var bot = require('./schuettoxinterface');
 var db = require('./db.js');
 function initBoard(){
   var board = [];
   var macro = [];
   for(var mi=0;mi<3;mi++){
-    macro[mi]=[0,0,0];
+    macro[mi]=[-1,-1,-1];
     board[mi]=[];
     for(var mj=0;mj<3;mj++){
       board[mi][mj]=[];
@@ -88,6 +89,7 @@ function validateMove(boardState,move){
   var macroMapj = ["left","center","right"];
   if(boardState.ended) return "Game ended.";
   if(move.player!=='1'&&move.player!=='2') return "Who?!?";
+  if(boardState.bot == move.player) return "You are not Bot!!";
   if(move.player!=boardState.turn) return "Not your turn.";
   if(getBlock(boardState.board,move)) return "Block occupied.";
   if(getDominator(boardState.board[move.mi][move.mj])) return "This macro is fucking owned";
@@ -99,6 +101,34 @@ function validateMove(boardState,move){
   }
   return null;
 }
+
+function mapTo4d(arr){
+  console.log(arr);
+  return {
+    mi:Math.floor(arr[1]/3),
+    mj:Math.floor(arr[0]/3),
+    i:Math.floor(arr[1]%3),
+    j:Math.floor(arr[0]%3)
+  };
+}
+function mapTo2d(){
+}
+function botPlay(boardName,callback){
+  exports.getBoard(boardName,(err,db_res)=>{
+    var boardState = JSON.parse(db_res);
+    console.log("Bot thinking :",boardName);
+    bot.run(boardState,(ans)=>{
+      var move = mapTo4d(ans);
+      move.boardName = boardName;
+      move.player = boardState.turn.toString();
+      console.log("Bot play :",move);
+      exports.move(move,callback,true);
+    });
+  })
+  // console.log("Yolo! " + boardName);
+
+}
+
 function setBoard(boardName,boardState,callback){
   db.set(boardName+ ":state",JSON.stringify(boardState),(err,resp)=>{
     if(err)return callback(err);
@@ -106,29 +136,59 @@ function setBoard(boardName,boardState,callback){
   });
 }
 function recordMove(move,turn){
-
+  db.set(move.boardName + ":log:" + turn,JSON.stringify(move),(err,resp)=>{
+    if(err)return console.log("Move recoding error :" + err);
+  });
 }
+var raceGet = {};
 exports.getBoard = (boardName,callback)=>{
+  boardName = boardName.toString();
+  if(boardName.length>64)return callback(new Error("Too long name length :" + boardName))
+  if(boardName.indexOf(":")>-1)return callback(new Error("Illegal name, ':'"))
+  if(!raceGet[boardName])
+  raceGet[boardName] = [];
+  else{
+    return raceGet[boardName].push(callback);
+  }
+  function clearRace(boardData){
+    if(!raceGet[boardName])return;
+    raceGet[boardName].forEach((raceCallback)=>{
+      raceCallback(null,boardData);
+    });
+    delete raceGet[boardName];
+  }
+  function initBot(boardName){;
+    botPlay(boardName,(err,resp)=>{
+      if(err)return console.log(err);
+    });
+  }
+  var isBot = boardName.startsWith("botr")||boardName.startsWith("botb");
   db.get(boardName+":state",function(err,db_res){
     if(err)return console.log(err);
     if(!db_res){
       var newBoard = initBoard();
+      if(isBot)newBoard.bot =  boardName.charAt(3)=='r' ? 1 : 2
       setBoard(boardName,newBoard,(err,resp)=>{
         if(err)return callback(err);
+        if(isBot&&newBoard.bot==1)initBot(boardName);
         console.log("New board :" + boardName + " created");
+        clearRace(JSON.stringify(newBoard));
         callback(null,JSON.stringify(newBoard));
       });
     }
-    else callback(null,db_res);
+    else {
+      clearRace(db_res);
+      callback(null,db_res);
+    }
   });
 }
-exports.move = (move,callback)=>{
+exports.move = (move,callback,isBot)=>{
   db.get(move.boardName+":state",(err,db_res)=>{
     if(err)return console.log(err);
     if(!db_res)
     return callback("Board not exists! Unusual activities.");
     var boardState = JSON.parse(db_res);
-    var moveError = validateMove(boardState,move);
+    var moveError = isBot ? 0 : validateMove(boardState,move);
     if(!moveError){
       setBlock(boardState.board,move);
       // boardState.macro[move.mi][move.mj] = getDominator(boardState.board[move.mi][move.mj]);
@@ -144,6 +204,9 @@ exports.move = (move,callback)=>{
           console.log("Database error:" + err);
           return callback(new Error("Internal server error"));
         }
+        if(boardState.bot && !isBot) botPlay(move.boardName,(err,resp)=>{
+            if(err)console.log(err);
+        });
         callback(null,JSON.stringify(resp));
       });
     }

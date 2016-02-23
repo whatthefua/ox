@@ -4,14 +4,11 @@ var r = new Redis({
 	port: 6379
 });
 exports.get = (key,callback)=>{
-  r.rawCall(['GET',key],(e,resp)=>{
-    if(e)return callback(e);
-    callback(null,resp);
-  });
+  r.rawCall(['GET',key],callback);
 }
 exports.set = (key,value,callback)=>{
-  r.rawCall(['SET',key,value],(e,resp)=>{
-    if(e)return callback(e);
-    callback(null,resp);
-  });
+  r.rawCall(['SET',key,value],callback);
+}
+exports.keys = (keyword,callback)=>{
+	r.rawCall(['KEYS',keyword],callback)
 }
